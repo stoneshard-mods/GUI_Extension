@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>GUI_Extension</AssemblyName>
+    <RootNamespace>GUI_Extension</RootNamespace>
+    <Nullable>disable</Nullable>
+    <!-- 打包器不读 csproj，这里只服务 IDE / dotnet build；
+         不开 ImplicitUsings，避免被绑定到 net10 的 System.Linq（原版 MSL 是 net6 进程）。 -->
+    <ImplicitUsings>disable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="ModShardLauncher">
+      <HintPath>$(MSBuildThisFileDirectory)lib\ModShardLauncher.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UndertaleModLib">
+      <HintPath>$(MSBuildThisFileDirectory)lib\UndertaleModLib.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>
