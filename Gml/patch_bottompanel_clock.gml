@@ -25,5 +25,5 @@ if (variable_global_exists("msl_gui_ext_show_clock") ? global.msl_gui_ext_show_c
     var _msl_edgeRight = x + (sprite_width + global.cameraWidth) / 2 - 6
     var _msl_edgeBottom = y + sprite_height - 4
 
-    scr_drawText(_msl_edgeRight, _msl_edgeBottom, _msl_clock, c_white, fa_right, fa_bottom, global.f_digits, 0.75)
+    scr_drawText(_msl_edgeRight, _msl_edgeBottom, _msl_clock, c_white, fa_right, fa_bottom, global.f_digits, 0.65)
 }

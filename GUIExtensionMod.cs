@@ -8,9 +8,9 @@ public class GUIExtensionMod : Mod
 {
     public override string Name => "GUI_Extension";
     public override string Author => "Pixel32E";
-    public override string Description => "GUI 拓展：生命槽拆成 生命/斗志/神智，精力槽拆成 精力/格挡力量，右下角显示天数与时间，各条都有悬停说明";
-    public override string ShortDesc => "Split HP/Morale/Sanity and Energy/Block bars, plus a day+clock readout";
-    public override string Version => "v1.9.1.0";
+    public override string Description => "GUI 拓展：生命/精力各做成一根圆柱液体容器（可悬停），中间槽位显示斗志/神智/格挡力量，右下角显示天数与时间";
+    public override string ShortDesc => "HP & Energy cylinders + Morale/Sanity/Block bars + day clock";
+    public override string Version => "v1.14.2.0";
 
     // scr_healbar 里两段绘制代码（生命块 + 精力块）的起止锚点。
     // 游戏改代码时这里抛异常，而不是静默画出错位的东西。
@@ -56,7 +56,7 @@ public class GUIExtensionMod : Mod
     private void AddSettingsMenu()
     {
         // 启动器把它渲染成「MODS」页里的一个勾选项：状态存进 msl_menu_mod.ini 的 [GUI_Extension] 段，
-        // 开局由 o_msl_initializer 读回 global.msl_gui_ext_prr_on_bar。
+        // 开局由 o_msl_initializer 读回 global.msl_gui_ext_*。
         Msl.AddMenu(
             "GUI_Extension",
             new UIComponent(
@@ -105,55 +105,62 @@ public class GUIExtensionMod : Mod
             isVisible: true, isPersistent: false, isAwake: true);
         Msl.AddNewEvent("o_msl_blockpower", Code("o_msl_blockpower_Other_20.gml"), EventType.Other, 20);
 
-        // 交互体：复用 o_gui_barHover 的悬停逻辑，命中区/高亮换成右半条那一套。
-        Msl.AddObject("o_msl_blockhover", spriteName: "s_msl_blockmask", parentName: "o_gui_barHover",
-            isVisible: true, isPersistent: true, isAwake: true);
-        Msl.AddNewEvent("o_msl_blockhover", Code("o_msl_blockhover_Create.gml"), EventType.Create, 0);
+        // 交互体：格挡条现在铺满整槽，命中区/高亮按 167px 那套。
+        AddHoverObject("o_msl_blockhover", "s_msl_blockmask", "s_msl_blockhover",
+            "o_msl_blockpower", "msl_gui_ext_show_bp");
 
-        // 开关关掉时格挡条的悬停区要退出交互列表（精力条已经恢复整条宽度）。
-        Msl.AddNewEvent("o_msl_blockhover", Code("o_msl_bphover_Step.gml"), EventType.Step, 0);
-
-        // 原精力条悬停区是整个槽位，会把右半的格挡条一起盖住
-        // （scr_guiControllerInteractiveUpdate 的 instance_position_list 取第一个命中），
-        // 所以把它的命中区和高亮也缩到左半；关掉格挡条时再由 Step 换回原版整套。
-        InsertAtEnd(EnergyHoverCode, Code("patch_energybar_hover.gml"), "收缩精力条悬停区");
+        // 原精力条悬停区：格挡条铺满后精力条已不在槽位里，开着时必须退出交互列表
+        // （scr_guiControllerInteractiveUpdate 的 instance_position_list 取第一个命中）；
+        // 关掉格挡条时再由 Step 换回原版整套。
+        InsertAtEnd(EnergyHoverCode, Code("patch_energybar_hover.gml"), "停用精力条悬停区");
         Msl.AddNewEvent(EnergyHoverObject, Code("patch_energybar_hover.gml"), EventType.Step, 0);
 
-        // 在底部面板里挂上格挡条的悬停区（x = 条起点 - 2，和原版两个条一致）。
+        // 在底部面板里挂上格挡条的悬停区（x = 条起点 - 2）。
         InsertBelow(BottomPanelCode, EnergyHoverAnchors, Code("patch_bottompanel_hover.gml"), "创建格挡条悬停区");
     }
 
     private void AddStatHovers()
     {
-        // 生命悬停的命中区/高亮：Create 里先摆对一次，Step 里跟着设置实时切换。
-        InsertAtEnd(HealthHoverCode, Code("patch_healthbar_hover.gml"), "收缩生命条悬停区");
+        // 原生命条悬停区：开着容器时槽位只有斗志/神智，生命提示挂在容器上，所以这里要退出。
+        InsertAtEnd(HealthHoverCode, Code("patch_healthbar_hover.gml"), "停用生命条悬停区");
         Msl.AddNewEvent(HealthHoverObject, Code("patch_healthbar_hover.gml"), EventType.Step, 0);
 
         AddStatHover("o_msl_moraleinfo", "o_msl_moraleinfo_Other_20.gml",
-            "o_msl_moralehover", "s_msl_morale_mask", "s_msl_morale_hover");
+            "o_msl_moralehover", "s_msl_morale_mask", "s_msl_morale_hover", "msl_gui_ext_show_psy");
         AddStatHover("o_msl_sanityinfo", "o_msl_sanityinfo_Other_20.gml",
-            "o_msl_sanityhover", "s_msl_sanity_mask", "s_msl_sanity_hover");
+            "o_msl_sanityhover", "s_msl_sanity_mask", "s_msl_sanity_hover", "msl_gui_ext_show_psy");
 
-        // 在底部面板里挂上两条的悬停区（x = 条起点 - 2）。
-        InsertBelow(BottomPanelCode, HealthHoverAnchors, Code("patch_bottompanel_stat_hover.gml"), "创建斗志/神智悬停区");
+        // 两根液体容器的悬停：条上不印数字，所以提示里要带「当前/有效上限 + 上限被扣多少」
+        AddStatHover("o_msl_hpinfo", "o_msl_hpinfo_Other_20.gml", "o_msl_hptubehover",
+            "s_msl_hptubemask", "s_msl_hptubehover", "msl_gui_ext_show_psy", "o_hoverCharHealth");
+        AddStatHover("o_msl_mpinfo", "o_msl_mpinfo_Other_20.gml", "o_msl_mptubehover",
+            "s_msl_mptubemask", "s_msl_mptubehover", "msl_gui_ext_show_bp", "o_hoverCharEnergy");
+
+        // 在底部面板里挂上容器 / 斗志 / 神智的悬停区。
+        InsertBelow(BottomPanelCode, HealthHoverAnchors, Code("patch_bottompanel_stat_hover.gml"), "创建容器/斗志/神智悬停区");
     }
 
-    private void AddStatHover(string infoName, string infoGml, string hoverName, string maskSprite, string highlightSprite)
+    private void AddStatHover(string infoName, string infoGml, string hoverName, string maskSprite, string highlightSprite, string key, string parentName = "o_hoverCharEnergy")
     {
-        // 提示内容：复用 o_hoverCharEnergy 的排版/绘制，只换掉数据来源（User 10 事件）。
-        Msl.AddObject(infoName, spriteName: "", parentName: "o_hoverCharEnergy",
+        // 提示内容：复用原版提示对象的排版/绘制，只覆盖 User 10（数据来源与文字）。
+        Msl.AddObject(infoName, spriteName: "", parentName: parentName,
             isVisible: true, isPersistent: false, isAwake: true);
         Msl.AddNewEvent(infoName, Code(infoGml), EventType.Other, 20);
 
+        AddHoverObject(hoverName, maskSprite, highlightSprite, infoName, key);
+    }
+
+    private void AddHoverObject(string hoverName, string maskSprite, string highlightSprite, string contentObject, string key)
+    {
         // 交互体：复用 o_gui_barHover 的悬停逻辑，命中区/高亮用自己那一套。
+        // msl_hoverKey 供共用的 Step 判断该不该挂进交互列表。
         Msl.AddObject(hoverName, spriteName: maskSprite, parentName: "o_gui_barHover",
             isVisible: true, isPersistent: true, isAwake: true);
         Msl.AddNewEvent(hoverName,
-            "event_inherited()\nspriteHover = " + highlightSprite + "\nhoverObject = " + infoName + "\n",
+            "event_inherited()\nspriteHover = " + highlightSprite + "\nhoverObject = " + contentObject
+            + "\nmsl_hoverKey = \"" + key + "\"\n",
             EventType.Create, 0);
-
-        // 开关关掉时这两个悬停区要退出交互列表（生命条已经恢复整条宽度）。
-        Msl.AddNewEvent(hoverName, Code("o_msl_stathover_Step.gml"), EventType.Step, 0);
+        Msl.AddNewEvent(hoverName, Code("o_msl_hover_Step.gml"), EventType.Step, 0);
     }
 
     private string Code(string fileName)
