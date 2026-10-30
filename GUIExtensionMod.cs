@@ -8,9 +8,9 @@ public class GUIExtensionMod : Mod
 {
     public override string Name => "GUI_Extension";
     public override string Author => "Pixel32E";
-    public override string Description => "GUI 拓展：生命/精力各做成一根圆柱液体容器（可悬停），中间槽位显示斗志/神智/格挡力量，右下角显示天数与时间";
-    public override string ShortDesc => "HP & Energy cylinders + Morale/Sanity/Block bars + day clock";
-    public override string Version => "v1.14.2.0";
+    public override string Description => "底部 HUD 重制：生命/精力做成圆柱液体容器（可悬停看上限与伤势/疲劳扣减），中间槽位显示斗志/神智/格挡力量，右下角显示日期时间，敌人头顶可选血条；设置项支持中/英/俄/日/韩";
+    public override string ShortDesc => "HP & Energy cylinders, Morale/Sanity/Block bars, clock, optional enemy HP bar (multi-language UI)";
+    public override string Version => "v1.16.1.0";
 
     // scr_healbar 里两段绘制代码（生命块 + 精力块）的起止锚点。
     // 游戏改代码时这里抛异常，而不是静默画出错位的东西。
@@ -20,6 +20,8 @@ public class GUIExtensionMod : Mod
 
     private const string BottomPanelCode = "gml_Object_o_bottompanel_Create_0";
     private const string BottomPanelDrawCode = "gml_Object_o_bottompanel_Draw_0";
+    private const string EnemyDrawEndCode = "gml_Object_o_enemy_Draw_73";
+    private const string CheckboxDrawCode = "gml_Object_o_checkbox_Draw_0";
     private const string EnergyHoverCode = "gml_Object_o_gui_energybarHover_Create_0";
     private const string EnergyHoverObject = "o_gui_energybarHover";
     private const string HealthHoverCode = "gml_Object_o_gui_healthbarHover_Create_0";
@@ -44,7 +46,17 @@ public class GUIExtensionMod : Mod
         AddBlockBarHover();
         AddStatHovers();
         AddClock();
+        AddEnemyHp();
+        AddMenuLocalization();
         AddSettingsMenu();
+    }
+
+    private void AddMenuLocalization()
+    {
+        // 设置项多语言：启动器的 UIComponent 只收静态字符串，
+        // 所以设置项名字统一用英文原文当键，勾选项画之前调 scr_msl_gui_ext_tr 翻一次。
+        Msl.AddFunction(Code("scr_msl_gui_ext_tr.gml"), "scr_msl_gui_ext_tr");
+        InsertAbove(CheckboxDrawCode, "draw_sprite(checkboxSprite", Code("patch_checkbox_tr.gml"), "勾选项文本本地化");
     }
 
     private void AddClock()
@@ -53,32 +65,46 @@ public class GUIExtensionMod : Mod
         InsertAtEnd(BottomPanelDrawCode, Code("patch_bottompanel_clock.gml"), "右下角时间显示");
     }
 
+    private void AddEnemyHp()
+    {
+        // 敌人头顶血条：追加在 o_enemy 的 Draw End 末尾。
+        // o_enemy 的子对象都没有重写 Draw_73，所以这一处覆盖所有敌人。
+        InsertAtEnd(EnemyDrawEndCode, Code("patch_enemyhp.gml"), "敌人头顶血条");
+    }
+
     private void AddSettingsMenu()
     {
         // 启动器把它渲染成「MODS」页里的一个勾选项：状态存进 msl_menu_mod.ini 的 [GUI_Extension] 段，
         // 开局由 o_msl_initializer 读回 global.msl_gui_ext_*。
+        // 名字一律写英文原文 —— scr_msl_gui_ext_tr 用它当键，
+        // 勾选项绘制时按 global.language 翻成中文/俄文/日文/韩文（其它语言回退英文）。
         Msl.AddMenu(
             "GUI_Extension",
             new UIComponent(
-                "格挡条显示几率 / Show chance on bar",
+                "Show chance on bar",
                 "msl_gui_ext_prr_on_bar",
                 UIComponentType.CheckBox,
                 0),
             new UIComponent(
-                "显示神智斗志 / Show sanity & morale",
+                "Show sanity & morale",
                 "msl_gui_ext_show_psy",
                 UIComponentType.CheckBox,
                 1),
             new UIComponent(
-                "显示格挡条 / Show block power bar",
+                "Show block power bar",
                 "msl_gui_ext_show_bp",
                 UIComponentType.CheckBox,
                 1),
             new UIComponent(
-                "显示时间 / Show clock",
+                "Show clock",
                 "msl_gui_ext_show_clock",
                 UIComponentType.CheckBox,
-                1));
+                1),
+            new UIComponent(
+                "Always show enemy HP",
+                "msl_gui_ext_enemyhp_always",
+                UIComponentType.CheckBox,
+                0));
     }
 
     private void ReplaceBars()
@@ -187,6 +213,19 @@ public class GUIExtensionMod : Mod
 
         throw new System.InvalidOperationException(
             "GUI_Extension 打补丁失败：" + what + "（" + codeName + "）。游戏代码可能已更新。", last);
+    }
+
+    private static void InsertAbove(string codeName, string anchor, string code, string what)
+    {
+        try
+        {
+            Msl.LoadGML(codeName).MatchFrom(anchor).InsertAbove(code).Save();
+        }
+        catch (System.Exception ex)
+        {
+            throw new System.InvalidOperationException(
+                "GUI_Extension 打补丁失败：" + what + "（" + codeName + "）。游戏代码可能已更新。", ex);
+        }
     }
 
     private static void InsertAtEnd(string codeName, string code, string what)
