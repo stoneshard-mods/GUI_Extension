@@ -8,9 +8,9 @@ public class GUIExtensionMod : Mod
 {
     public override string Name => "GUI_Extension";
     public override string Author => "Pixel32E";
-    public override string Description => "底部 HUD 重制：生命/精力做成圆柱液体容器（可悬停看上限与伤势/疲劳扣减），中间槽位显示斗志/神智/格挡力量，右下角显示日期时间，敌人头顶可选血条；设置项支持中/英/俄/日/韩";
-    public override string ShortDesc => "HP & Energy cylinders, Morale/Sanity/Block bars, clock, optional enemy HP bar (multi-language UI)";
-    public override string Version => "v1.16.1.0";
+    public override string Description => "底部 HUD 重制：斗志/神智做成面板两端的圆柱液体容器（可悬停看属性），生命改回整条横条，精力与格挡力量各占右槽一半，右下角显示日期时间，敌人头顶可选血条；设置项支持中/英/俄/日/韩";
+    public override string ShortDesc => "Morale/Sanity cylinders, HP bar, Energy & Block split 50/50, clock, optional enemy HP bar (multi-language UI)";
+    public override string Version => "v1.17.0.0";
 
     // scr_healbar 里两段绘制代码（生命块 + 精力块）的起止锚点。
     // 游戏改代码时这里抛异常，而不是静默画出错位的东西。
@@ -25,7 +25,6 @@ public class GUIExtensionMod : Mod
     private const string EnergyHoverCode = "gml_Object_o_gui_energybarHover_Create_0";
     private const string EnergyHoverObject = "o_gui_energybarHover";
     private const string HealthHoverCode = "gml_Object_o_gui_healthbarHover_Create_0";
-    private const string HealthHoverObject = "o_gui_healthbarHover";
 
     // 反编译器有时把资源写成对象名、有时写成数字 id，两种都认。
     private static readonly string[] EnergyHoverAnchors =
@@ -131,15 +130,9 @@ public class GUIExtensionMod : Mod
             isVisible: true, isPersistent: false, isAwake: true);
         Msl.AddNewEvent("o_msl_blockpower", Code("o_msl_blockpower_Other_20.gml"), EventType.Other, 20);
 
-        // 交互体：格挡条现在铺满整槽，命中区/高亮按 167px 那套。
+        // 交互体：格挡条只占右槽右半（83px），命中区/高亮按半宽那套。
         AddHoverObject("o_msl_blockhover", "s_msl_blockmask", "s_msl_blockhover",
             "o_msl_blockpower", "msl_gui_ext_show_bp");
-
-        // 原精力条悬停区：格挡条铺满后精力条已不在槽位里，开着时必须退出交互列表
-        // （scr_guiControllerInteractiveUpdate 的 instance_position_list 取第一个命中）；
-        // 关掉格挡条时再由 Step 换回原版整套。
-        InsertAtEnd(EnergyHoverCode, Code("patch_energybar_hover.gml"), "停用精力条悬停区");
-        Msl.AddNewEvent(EnergyHoverObject, Code("patch_energybar_hover.gml"), EventType.Step, 0);
 
         // 在底部面板里挂上格挡条的悬停区（x = 条起点 - 2）。
         InsertBelow(BottomPanelCode, EnergyHoverAnchors, Code("patch_bottompanel_hover.gml"), "创建格挡条悬停区");
@@ -147,23 +140,34 @@ public class GUIExtensionMod : Mod
 
     private void AddStatHovers()
     {
-        // 原生命条悬停区：开着容器时槽位只有斗志/神智，生命提示挂在容器上，所以这里要退出。
-        InsertAtEnd(HealthHoverCode, Code("patch_healthbar_hover.gml"), "停用生命条悬停区");
-        Msl.AddNewEvent(HealthHoverObject, Code("patch_healthbar_hover.gml"), EventType.Step, 0);
+        // 生命 / 精力的提示内容：挂到原版那两块悬停区上（命中区/位置保持原版，只换内容），
+        // 因为条上不印上限，提示里要带「当前/有效上限 + 伤势・疲劳扣了多少」。
+        AddInfoObject("o_msl_hpinfo", "o_msl_hpinfo_Other_20.gml", "o_hoverCharHealth");
+        AddInfoObject("o_msl_mpinfo", "o_msl_mpinfo_Other_20.gml", "o_hoverCharEnergy");
 
+        // 原生命悬停区：位置本来就是整条左槽，把提示内容换成上限版。
+        InsertAtEnd(HealthHoverCode, Code("patch_healthbar_hover.gml"), "生命提示改挂上限版内容");
+
+        // 原精力悬停区：格挡条开着时缩到右槽左半，关掉时恢复原版整套。
+        InsertAtEnd(EnergyHoverCode, Code("patch_energybar_hover.gml"), "精力悬停区缩到左半");
+        Msl.AddNewEvent(EnergyHoverObject, Code("patch_energybar_hover.gml"), EventType.Step, 0);
+
+        // 斗志 / 神智：改成面板两端的柱状容器，悬停区跟着挪到容器上。
         AddStatHover("o_msl_moraleinfo", "o_msl_moraleinfo_Other_20.gml",
-            "o_msl_moralehover", "s_msl_morale_mask", "s_msl_morale_hover", "msl_gui_ext_show_psy");
+            "o_msl_moralehover", "s_msl_moraltubemask", "s_msl_moraltubehover", "msl_gui_ext_show_psy");
         AddStatHover("o_msl_sanityinfo", "o_msl_sanityinfo_Other_20.gml",
-            "o_msl_sanityhover", "s_msl_sanity_mask", "s_msl_sanity_hover", "msl_gui_ext_show_psy");
+            "o_msl_sanityhover", "s_msl_sanitytubemask", "s_msl_sanitytubehover", "msl_gui_ext_show_psy");
 
-        // 两根液体容器的悬停：条上不印数字，所以提示里要带「当前/有效上限 + 上限被扣多少」
-        AddStatHover("o_msl_hpinfo", "o_msl_hpinfo_Other_20.gml", "o_msl_hptubehover",
-            "s_msl_hptubemask", "s_msl_hptubehover", "msl_gui_ext_show_psy", "o_hoverCharHealth");
-        AddStatHover("o_msl_mpinfo", "o_msl_mpinfo_Other_20.gml", "o_msl_mptubehover",
-            "s_msl_mptubemask", "s_msl_mptubehover", "msl_gui_ext_show_bp", "o_hoverCharEnergy");
+        // 在底部面板里挂上两根容器的悬停区。
+        InsertBelow(BottomPanelCode, HealthHoverAnchors, Code("patch_bottompanel_stat_hover.gml"), "创建斗志/神智容器悬停区");
+    }
 
-        // 在底部面板里挂上容器 / 斗志 / 神智的悬停区。
-        InsertBelow(BottomPanelCode, HealthHoverAnchors, Code("patch_bottompanel_stat_hover.gml"), "创建容器/斗志/神智悬停区");
+    private void AddInfoObject(string infoName, string infoGml, string parentName)
+    {
+        // 提示内容对象：父对象负责排版/绘制，User 10 里换成自己的数据与文字。
+        Msl.AddObject(infoName, spriteName: "", parentName: parentName,
+            isVisible: true, isPersistent: false, isAwake: true);
+        Msl.AddNewEvent(infoName, Code(infoGml), EventType.Other, 20);
     }
 
     private void AddStatHover(string infoName, string infoGml, string hoverName, string maskSprite, string highlightSprite, string key, string parentName = "o_hoverCharEnergy")
