@@ -10,9 +10,9 @@ var _msl_barH = _healthBarHeight
 var _msl_show_psy = variable_global_exists("msl_gui_ext_show_psy") ? global.msl_gui_ext_show_psy : 1
 var _msl_show_bp = variable_global_exists("msl_gui_ext_show_bp") ? global.msl_gui_ext_show_bp : 1
 
-// 柱状容器尺寸（斗志 / 神智 两根同款）：22x46，45 帧长图，底对齐面板底
-var _msl_tubeW = 22
-var _msl_tubeH = 46
+// 柱状容器尺寸（斗志 / 神智 两根同款）：20x42，45 帧长图，底对齐面板底
+var _msl_tubeW = 20
+var _msl_tubeH = 42
 var _msl_tubeY = other.y + other.sprite_height - _msl_tubeH
 
 // ================= 左槽：生命横条（原版整条样式）=================
@@ -38,7 +38,7 @@ if (_msl_show_psy)
     var _msl_mor_x = other.x + 138
 
     draw_sprite_part(_msl_mor_spr, 0, _msl_mor_frame * _msl_tubeW, 0, _msl_tubeW, _msl_tubeH, _msl_mor_x, _msl_tubeY)
-    scr_drawText(_msl_mor_x + _msl_tubeW / 2, _msl_tubeY + 23, string(math_round(_msl_mor_v)), c_white, fa_center, fa_middle, global.f_digits, 0.4)
+    scr_drawText(_msl_mor_x + _msl_tubeW / 2, _msl_tubeY + 21, string(math_round(_msl_mor_v)), c_white, fa_center, fa_middle, global.f_digits, 0.4)
 
     // 神智：同款，右端对称位置
     var _msl_san_v = clamp(scr_atr("Sanity", 100), 0, 100)
@@ -47,7 +47,7 @@ if (_msl_show_psy)
     var _msl_san_x = other.x + 498
 
     draw_sprite_part(_msl_san_spr, 0, _msl_san_frame * _msl_tubeW, 0, _msl_tubeW, _msl_tubeH, _msl_san_x, _msl_tubeY)
-    scr_drawText(_msl_san_x + _msl_tubeW / 2, _msl_tubeY + 23, string(math_round(_msl_san_v)), c_white, fa_center, fa_middle, global.f_digits, 0.4)
+    scr_drawText(_msl_san_x + _msl_tubeW / 2, _msl_tubeY + 21, string(math_round(_msl_san_v)), c_white, fa_center, fa_middle, global.f_digits, 0.4)
 }
 
 // ================= 右槽：精力 50% + 格挡力量 50% =================

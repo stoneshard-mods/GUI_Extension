@@ -7,10 +7,10 @@ namespace GUI_Extension;
 public class GUIExtensionMod : Mod
 {
     public override string Name => "GUI_Extension";
-    public override string Author => "Pixel32E";
+    public override string Author => "Pixel32E-QQ:3566723459";
     public override string Description => "底部 HUD 重制：斗志/神智做成面板两端的圆柱液体容器（可悬停看属性），生命改回整条横条，精力与格挡力量各占右槽一半，右下角显示日期时间，敌人头顶可选血条；设置项支持中/英/俄/日/韩";
     public override string ShortDesc => "Morale/Sanity cylinders, HP bar, Energy & Block split 50/50, clock, optional enemy HP bar (multi-language UI)";
-    public override string Version => "v1.17.0.0";
+    public override string Version => "v1.17.2.0";
 
     // scr_healbar 里两段绘制代码（生命块 + 精力块）的起止锚点。
     // 游戏改代码时这里抛异常，而不是静默画出错位的东西。
